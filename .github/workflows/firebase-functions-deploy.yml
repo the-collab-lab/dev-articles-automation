@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install Dependencies
-        run: npm install --prefix functions
+      - run: npm install --prefix functions
       - name: Deploy to Firebase
         uses: doonstore/firebase-deploy@v1
         with:
