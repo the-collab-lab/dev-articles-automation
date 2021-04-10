@@ -26,7 +26,7 @@ export const getArticles = functions.https.onRequest(async (request, response) =
     const dateDifference = (new Date()).getTime() - articleDate.getTime();
 
     // Converts timestamp from milliseconds to hours
-    return dateDifference / 1000 / 60 / 60 < 1;
+    return dateDifference / 1000 / 60 / 60 < 1000;
   };
 
   const articlesOnly = (article: Article): boolean => article.type_of === "article";
@@ -74,7 +74,7 @@ export const getArticles = functions.https.onRequest(async (request, response) =
     functions.logger.info("Number of member articles found:", allNewUserArticles.length);
     functions.logger.info("Number of new articles found:", allNewArticlesMapped.length);
 
-    await axios.post("https://hooks.zapier.com/hooks/catch/9894208/ojpgd4i/", {data: allNewArticlesMapped});
+    await axios.post(functions.config().zapier.webhook, {data: allNewArticlesMapped});
     response.json({data: allNewArticlesMapped});
   } catch (e) {
     functions.logger.error(e);
