@@ -87,7 +87,7 @@ export const getArticles = functions.https.onRequest(async (request, response) =
     functions.logger.info("Number of new articles found:", allNewArticles.length);
 
     functions.logger.info("Triggering Zapier Webhook:", functions.config().zapier.webhook);
-    // await axios.post(functions.config().zapier.webhook, {data: allNewArticles});
+    await axios.post(functions.config().zapier.webhook, {data: allNewArticles});
 
     response.json({data: allNewArticles});
   } catch (e) {
