@@ -25,40 +25,45 @@ export const getArticles = functions.https.onRequest(async (request, response) =
     return dateDifference / 1000 / 60 / 60 < 1000;
   };
 
-  const {data: orgArticles}: {data: Article[]} = await axios.get(`${api}/organizations/the-collab-lab/articles`);
-  const newOrgArticles = orgArticles.filter(lastHour);
+  try {
+    const {data: orgArticles}: {data: Article[]} = await axios.get(`${api}/organizations/the-collab-lab/articles`);
+    const newOrgArticles = orgArticles.filter(lastHour);
 
-  const {data: users}: {data: User[]} = await axios.get(`${api}/organizations/the-collab-lab/users?per_page=1000`);
-  let allNewUserArticles: Article[] = [];
+    const {data: users}: {data: User[]} = await axios.get(`${api}/organizations/the-collab-lab/users?per_page=1000`);
+    let allNewUserArticles: Article[] = [];
 
-  const fetchUser = async (user: User) => {
-    const {data: userArticles}: {data: Article[]} = await axios.get(`${api}/articles/latest?username=${user.username}`);
+    const fetchUser = async (user: User) => {
+      const {data: userArticles}: {data: Article[]} = await axios.get(`${api}/articles/latest?username=${user.username}`);
 
-    const newUserArticles = userArticles.filter(lastHour).filter((article) => (
-      // Filter out the articles that are already included in the organization pull
-      !newOrgArticles.some((orgArticle) => article.id === orgArticle.id)
-    ));
+      const newUserArticles = userArticles.filter(lastHour).filter((article) => (
+        // Filter out the articles that are already included in the organization pull
+        !newOrgArticles.some((orgArticle) => article.id === orgArticle.id)
+      ));
 
-    functions.logger.info(`Articles for: ${user.username} (${newUserArticles.length})`, newUserArticles);
+      functions.logger.info(`Articles for: ${user.username} (${newUserArticles.length})`, newUserArticles);
 
-    allNewUserArticles = [...allNewUserArticles, ...newUserArticles];
-  };
+      allNewUserArticles = [...allNewUserArticles, ...newUserArticles];
+    };
 
-  const delay = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+    const delay = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
-  const userPromises = users.map(async (user, index) => {
-    // Stagger fetch request, limit for dev.to is 3 requests per second
-    await delay(1500 * index);
-    await fetchUser(user);
-  });
-  await Promise.all(userPromises);
+    const userPromises = users.map(async (user, index) => {
+      // Stagger fetch request, limit for dev.to is 3 requests per second
+      await delay(1500 * index);
+      await fetchUser(user);
+    });
+    await Promise.all(userPromises);
 
-  const allNewArticles = [...newOrgArticles, ...allNewUserArticles];
+    const allNewArticles = [...newOrgArticles, ...allNewUserArticles];
 
-  functions.logger.info("Organization articles found:", newOrgArticles);
-  functions.logger.info("Number of organization articles found:", newOrgArticles.length);
-  functions.logger.info("Member articles found:", allNewUserArticles);
-  functions.logger.info("Number of member articles found:", allNewUserArticles.length);
-  functions.logger.info("Number of new articles found:", allNewArticles.length);
-  response.json({data: allNewArticles});
+    functions.logger.info("Organization articles found:", newOrgArticles);
+    functions.logger.info("Number of organization articles found:", newOrgArticles.length);
+    functions.logger.info("Member articles found:", allNewUserArticles);
+    functions.logger.info("Number of member articles found:", allNewUserArticles.length);
+    functions.logger.info("Number of new articles found:", allNewArticles.length);
+    response.json({data: allNewArticles});
+  } catch (e) {
+    functions.logger.error(e);
+    response.status(400).send("Error while fetching data from DEV posts.");
+  }
 });
