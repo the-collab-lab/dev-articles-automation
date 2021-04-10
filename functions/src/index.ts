@@ -26,7 +26,7 @@ const lastHour = (article: Article): boolean => {
   const dateDifference = (new Date()).getTime() - articleDate.getTime();
 
   // Converts timestamp from milliseconds to hours
-  return dateDifference / 1000 / 60 / 60 < 10000;
+  return dateDifference / 1000 / 60 / 60 < 1;
 };
 
 const articlesOnly = (article: Article): boolean => article.type_of === "article";
