@@ -18,21 +18,23 @@ type User = {
     username: string
 }
 
+const delay = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+// This checks if the article's publish date is within one hour of the current date
+const lastHour = (article: Article): boolean => {
+  const articleDate = new Date(article.published_timestamp);
+  const dateDifference = (new Date()).getTime() - articleDate.getTime();
+
+  // Converts timestamp from milliseconds to hours
+  return dateDifference / 1000 / 60 / 60 < 10000;
+};
+
+const articlesOnly = (article: Article): boolean => article.type_of === "article";
+
+const api = "https://dev.to/api"; // Limit for dev.to is 3 requests per second
+const base = new Airtable({apiKey: functions.config().airtable.key}).base(functions.config().airtable.base);
+
 export const getArticles = functions.https.onRequest(async (request, response) => {
-  const api = "https://dev.to/api";
-  const base = new Airtable({apiKey: functions.config().airtable.key}).base(functions.config().airtable.base);
-
-  const lastHour = (article: Article): boolean => {
-    // This checks if the article's publish date is within one hour of the current date
-    const articleDate = new Date(article.published_timestamp);
-    const dateDifference = (new Date()).getTime() - articleDate.getTime();
-
-    // Converts timestamp from milliseconds to hours
-    return dateDifference / 1000 / 60 / 60 < 1;
-  };
-
-  const articlesOnly = (article: Article): boolean => article.type_of === "article";
-
   try {
     const {data: orgArticles}: {data: Article[]} = await axios.get(`${api}/organizations/the-collab-lab/articles`);
     const newOrgArticles = orgArticles.filter(lastHour).filter(articlesOnly);
@@ -53,22 +55,19 @@ export const getArticles = functions.https.onRequest(async (request, response) =
       allNewUserArticles = [...allNewUserArticles, ...newUserArticles];
     };
 
-    const delay = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
-
-    const userPromises = users.map(async (user, index) => {
-      // Stagger fetch request, limit for dev.to is 3 requests per second
+    const delayFetchingUser = async (user: User, index: number) => {
       await delay(1200 * index);
       await fetchUser(user);
-    });
-    await Promise.all(userPromises);
-
+    };
 
     // This gets all the other members that are being followed from Airtable and fetches their posts as well.
-    let customFollowing: string[] = [];
+    let customFollowing: User[] = [];
 
     await new Promise((resolve) => {
       base("Following").select({view: "Grid view"}).eachPage((records: any[], fetchNextPage: () => void) => {
-        records.forEach((record) => customFollowing = [...customFollowing, record.get("Username")]);
+        customFollowing = records.map((record): User => ({
+          username: record.get("Username"),
+        }));
         fetchNextPage();
       }, (error: string) => {
         if (error) functions.logger.error(error);
@@ -76,30 +75,21 @@ export const getArticles = functions.https.onRequest(async (request, response) =
       });
     });
 
-    const customFollowingPromises = customFollowing.map(async (user, index) => {
-      // Stagger fetch request, limit for dev.to is 3 requests per second
-      await delay(1500 * index);
-      await fetchUser({username: user});
-    });
-    await Promise.all(customFollowingPromises);
+    await Promise.all(users.map(delayFetchingUser));
+    await Promise.all(customFollowing.map(delayFetchingUser));
 
     const allNewArticles = [...newOrgArticles, ...allNewUserArticles];
-    const allNewArticlesMapped = allNewArticles.map((article) => ({
-      ...article,
-      author: article.user.name,
-      username: article.user.username,
-      profile_image_90: article.user.profile_image_90,
-    }));
 
     functions.logger.info("Organization articles found:", newOrgArticles);
     functions.logger.info("Number of organization articles found:", newOrgArticles.length);
     functions.logger.info("Member articles found:", allNewUserArticles);
     functions.logger.info("Number of member articles found:", allNewUserArticles.length);
-    functions.logger.info("Number of new articles found:", allNewArticlesMapped.length);
+    functions.logger.info("Number of new articles found:", allNewArticles.length);
 
     functions.logger.info("Triggering Zapier Webhook:", functions.config().zapier.webhook);
-    await axios.post(functions.config().zapier.webhook, {data: allNewArticlesMapped});
-    response.json({data: allNewArticlesMapped});
+    // await axios.post(functions.config().zapier.webhook, {data: allNewArticles});
+
+    response.json({data: allNewArticles});
   } catch (e) {
     functions.logger.error(e);
     response.status(400).send("Error while fetching data from DEV posts.");
