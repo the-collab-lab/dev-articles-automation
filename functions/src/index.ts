@@ -73,6 +73,8 @@ export const getArticles = functions.https.onRequest(async (request, response) =
     functions.logger.info("Member articles found:", allNewUserArticles);
     functions.logger.info("Number of member articles found:", allNewUserArticles.length);
     functions.logger.info("Number of new articles found:", allNewArticlesMapped.length);
+
+    await axios.post("https://hooks.zapier.com/hooks/catch/9894208/ojpgd4i/", {data: allNewArticlesMapped});
     response.json({data: allNewArticlesMapped});
   } catch (e) {
     functions.logger.error(e);
