@@ -4,7 +4,13 @@ import axios from "axios";
 type Article = {
     // eslint-disable-next-line camelcase
     published_timestamp: string
-    id: number
+    id: number,
+    user: {
+        name: string,
+        username: string,
+        // eslint-disable-next-line camelcase
+        profile_image_90: string
+    }
 }
 
 type User = {
@@ -55,13 +61,19 @@ export const getArticles = functions.https.onRequest(async (request, response) =
     await Promise.all(userPromises);
 
     const allNewArticles = [...newOrgArticles, ...allNewUserArticles];
+    const allNewArticlesMapped = allNewArticles.map((article) => ({
+      ...article,
+      author: article.user.name,
+      username: article.user.username,
+      profile_image_90: article.user.profile_image_90,
+    }));
 
     functions.logger.info("Organization articles found:", newOrgArticles);
     functions.logger.info("Number of organization articles found:", newOrgArticles.length);
     functions.logger.info("Member articles found:", allNewUserArticles);
     functions.logger.info("Number of member articles found:", allNewUserArticles.length);
-    functions.logger.info("Number of new articles found:", allNewArticles.length);
-    response.json({data: allNewArticles});
+    functions.logger.info("Number of new articles found:", allNewArticlesMapped.length);
+    response.json({data: allNewArticlesMapped});
   } catch (e) {
     functions.logger.error(e);
     response.status(400).send("Error while fetching data from DEV posts.");
