@@ -2,13 +2,12 @@ import * as functions from "firebase-functions";
 import axios from "axios";
 
 type Article = {
-    // eslint-disable-next-line camelcase
-    published_timestamp: string
+    published_timestamp: string,
+    type_of: string,
     id: number,
     user: {
         name: string,
         username: string,
-        // eslint-disable-next-line camelcase
         profile_image_90: string
     }
 }
@@ -31,9 +30,11 @@ export const getArticles = functions.https.onRequest(async (request, response) =
     return dateDifference / 1000 / 60 / 60 < 1000;
   };
 
+  const articlesOnly = (article: Article): boolean => article.type_of === "article";
+
   try {
     const {data: orgArticles}: {data: Article[]} = await axios.get(`${api}/organizations/the-collab-lab/articles`);
-    const newOrgArticles = orgArticles.filter(lastHour);
+    const newOrgArticles = orgArticles.filter(lastHour).filter(articlesOnly);
 
     const {data: users}: {data: User[]} = await axios.get(`${api}/organizations/the-collab-lab/users?per_page=1000`);
     let allNewUserArticles: Article[] = [];
@@ -41,7 +42,7 @@ export const getArticles = functions.https.onRequest(async (request, response) =
     const fetchUser = async (user: User) => {
       const {data: userArticles}: {data: Article[]} = await axios.get(`${api}/articles/latest?username=${user.username}`);
 
-      const newUserArticles = userArticles.filter(lastHour).filter((article) => (
+      const newUserArticles = userArticles.filter(lastHour).filter(articlesOnly).filter((article) => (
         // Filter out the articles that are already included in the organization pull
         !newOrgArticles.some((orgArticle) => article.id === orgArticle.id)
       ));
