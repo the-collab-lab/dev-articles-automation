@@ -68,7 +68,6 @@ export const getArticles = functions.https.onRequest(async (request, response) =
 
     await new Promise((resolve) => {
       base("Following").select({view: "Grid view"}).eachPage((records: any[], fetchNextPage: () => void) => {
-        records.forEach((record) => functions.logger.info(record.get("Username")));
         records.forEach((record) => customFollowing = [...customFollowing, record.get("Username")]);
         fetchNextPage();
       }, (error: string) => {
