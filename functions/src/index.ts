@@ -26,8 +26,7 @@ export const getArticles = functions.https.onRequest(async (request, response) =
     const dateDifference = (new Date()).getTime() - articleDate.getTime();
 
     // Converts timestamp from milliseconds to hours
-    // @todo change 1000 hours to compare to 1 hour
-    return dateDifference / 1000 / 60 / 60 < 1000;
+    return dateDifference / 1000 / 60 / 60 < 1;
   };
 
   const articlesOnly = (article: Article): boolean => article.type_of === "article";
